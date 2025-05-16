@@ -5,11 +5,14 @@ namespace JWTRefreshTokenInDotNet6.Models
 {
     public class ApplicationUser : IdentityUser
     {
-        //[MaxLength(50)]
-        //public string FirstName { get; set; }
+        [MaxLength(50)]
+        public string? Name { get; set; } 
 
-        //[MaxLength(50)]
-        //public string LastName { get; set; }
+        public string? Country { get; set; }
+
+        public DateTime? DateOfBirth { get; set; } 
+
+        public string? ProfileImageUrl { get; set; } // Link of photo 
 
         public string? vrevication { get; set; }
 

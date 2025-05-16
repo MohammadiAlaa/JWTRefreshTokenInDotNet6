@@ -5,8 +5,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using VoiceDetection.Dto;
+using VoiceDetection.Services;
 
 namespace JWTRefreshTokenInDotNet6.Controllers
 {
@@ -18,13 +21,15 @@ namespace JWTRefreshTokenInDotNet6.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IConfiguration _configuration;
         private readonly EmailService _emailService;
+        private readonly IBlacklistService _blacklistService;
 
-        public AuthController(IAuthService authService, UserManager<ApplicationUser> userManager,IConfiguration configuration,EmailService emailService)
-        {
+
+        public AuthController(IAuthService authService, UserManager<ApplicationUser> userManager,IConfiguration configuration,EmailService emailService, IBlacklistService blacklistService)        {
             _authService = authService;
             _userManager = userManager;
             _configuration = configuration;
             _emailService = emailService;
+            _blacklistService = blacklistService;
         }
 
         //[HttpPost("register")]
@@ -71,10 +76,17 @@ namespace JWTRefreshTokenInDotNet6.Controllers
             return Ok(model);
         }
 
+        #region Refresh Token
         [HttpGet("refreshToken")]
         public async Task<IActionResult> RefreshToken()
         {
             var refreshToken = Request.Cookies["refreshToken"];
+
+            if (string.IsNullOrEmpty(refreshToken))
+                return BadRequest("Refresh token is missing.");
+
+            if (await _blacklistService.IsTokenBlacklistedAsync(refreshToken))
+                return Unauthorized("This token has been revoked");
 
             var result = await _authService.RefreshTokenAsync(refreshToken);
 
@@ -85,6 +97,24 @@ namespace JWTRefreshTokenInDotNet6.Controllers
 
             return Ok(result);
         }
+
+
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] string refreshToken)
+        {
+            if (string.IsNullOrEmpty(refreshToken))
+                return BadRequest("Refresh token is required");
+
+            if (await _blacklistService.IsTokenBlacklistedAsync(refreshToken))
+                return Unauthorized("This token has been revoked");
+
+            var result = await _authService.RefreshTokenAsync(refreshToken);
+            if (!result.IsAuthenticated)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
+        #endregion
 
         [HttpPost("revokeToken")]
         public async Task<IActionResult> RevokeToken([FromBody] RevokeToken model)
@@ -135,23 +165,20 @@ namespace JWTRefreshTokenInDotNet6.Controllers
 
         [HttpPost("ForgetPassword")]
         [AllowAnonymous]
-        public async Task<IActionResult> ForgetPassword([FromBody] string email)
+        public async Task<IActionResult> ForgetPassword([FromBody] SendOtpDto email)
         {
-            var user = await _userManager.FindByEmailAsync(email);
+            var user = await _userManager.FindByEmailAsync(email.Email);
             if (user == null)
                 return BadRequest("User not found.");
 
-            // توليد OTP
             var otp = _emailService.GenerateVerificationCode();
 
-            // حفظ OTP والمُهلة الزمنية للمستخدم
             user.OtpCode = otp;
             user.CodeExpiryTime = DateTime.UtcNow.AddMinutes(5);
             await _userManager.UpdateAsync(user);
 
-            // إرسال OTP عبر البريد الإلكتروني
-            await _emailService.SendVerificationCodeAsync(user);
-
+            HttpContext.Session.SetString("ResetPasswordUserId", user.Id);
+            await _emailService.SendEmailAsync(email.Email, "Verification Code", $"Your OTP code is: {otp}");
             return Ok("OTP sent successfully.");
         }
 
@@ -172,18 +199,62 @@ namespace JWTRefreshTokenInDotNet6.Controllers
             }
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-
             var result = await _userManager.ResetPasswordAsync(user, token, model.NewPassword);
             if (!result.Succeeded)
             {
                 return BadRequest();
             }
 
-            // Clear the session after successful password reset
             HttpContext.Session.Remove("ResetPasswordUserId");
-
-            return Ok();
+            return Ok("Reset Password Sucessfully!");
         }
 
+        [HttpPut("complete-profile")]
+        [Authorize]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> CompleteProfile([FromForm] CompleteProfileDto model)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User ID not found");
+
+            var result = await _authService.CompleteUserProfileAsync(userId, model);
+
+            if (result != "Succeeded") 
+                return BadRequest(result);
+
+            return Ok(new { message = result });
+        }
+
+        [Authorize]
+        [HttpGet("profile")]
+        public async Task<IActionResult> GetProfile()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User ID not found");
+
+            var result = await _authService.GetUserProfileAsync(userId);
+
+            if (result == null)
+                return NotFound("User not found");
+
+            return Ok(new { message = "Profile fetched successfully", data = result });
+        }
+
+        [Authorize]
+        [HttpDelete("delete-profile")]
+        public async Task<IActionResult> DeleteProfile()
+        {
+            var userId = _userManager.GetUserId(User); 
+
+            var result = await _authService.DeleteProfileAsync(userId);
+
+            if (!result)
+                return NotFound(new { message = "User not found or delete failed." });
+
+            return Ok(new { message = "Profile deleted successfully." });
+        }
     }
 }
