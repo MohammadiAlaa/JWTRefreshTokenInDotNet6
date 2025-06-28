@@ -158,7 +158,7 @@ namespace JWTRefreshTokenInDotNet6.Services
                 _configuration["Jwt:Issuer"],
                 _configuration["Jwt:Audience"],
                 claims,
-                expires: DateTime.UtcNow.AddSeconds(300),
+                expires: DateTime.UtcNow.AddMinutes(30),
                 signingCredentials: credentials
             );
 
@@ -166,36 +166,81 @@ namespace JWTRefreshTokenInDotNet6.Services
         }
 
 
-        public async Task<AuthModel> RefreshTokenAsync(string token)
+        //public async Task<AuthModel> RefreshTokenAsync(string token)
+        //{
+        //    var authModel = new AuthModel();
+
+        //    var user = await _userManager.Users
+        //        .SingleOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == token));
+        //    if (user == null)
+        //    {
+        //        authModel.Message = "Invalid token";
+        //        return authModel;
+        //    }
+
+        //    var refreshToken = user.RefreshTokens.SingleOrDefault(t => t.Token == token);
+        //    if (refreshToken == null || !refreshToken.IsActive)
+        //    {
+        //        authModel.Message = "Token is inactive or revoked";
+        //        return authModel;
+        //    }
+        //    refreshToken.RevokedOn = DateTime.UtcNow;
+        //    var newRefreshToken = GenerateRefreshToken();
+        //    user.RefreshTokens.Add(newRefreshToken);
+        //    user.RefreshTokens.RemoveAll(t => !t.IsActive && t.ExpiresOn <= DateTime.UtcNow);
+        //    await _userManager.UpdateAsync(user);
+        //    _httpContextAccessor.HttpContext.Response.Cookies.Append("refreshToken", newRefreshToken.Token, new CookieOptions
+        //    {
+        //        HttpOnly = true,
+        //        Secure = true,
+        //        SameSite = SameSiteMode.None,
+        //        Expires = newRefreshToken.ExpiresOn
+        //    });
+
+        //    var jwtToken = GenerateJwtToken(user);
+        //    authModel.IsAuthenticated = true;
+        //    authModel.Token = new JwtSecurityTokenHandler().WriteToken(jwtToken);
+        //    authModel.Email = user.Email;
+        //    authModel.Username = user.UserName;
+        //    authModel.Roles = (await _userManager.GetRolesAsync(user)).ToList();
+        //    authModel.RefreshToken = newRefreshToken.Token;
+        //    authModel.RefreshTokenExpiration = newRefreshToken.ExpiresOn;
+
+        //    return authModel;
+        //}
+
+        public async Task<AuthModel> RefreshTokenAsync(RevokeToken token)
         {
             var authModel = new AuthModel();
 
+            if (string.IsNullOrEmpty(token.Token))
+            {
+                authModel.Message = "Refresh token is missing";
+                return authModel;
+            }
+
             var user = await _userManager.Users
-                .SingleOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == token));
+                .SingleOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == token.Token));
+
             if (user == null)
             {
                 authModel.Message = "Invalid token";
                 return authModel;
             }
 
-            var refreshToken = user.RefreshTokens.SingleOrDefault(t => t.Token == token);
+            var refreshToken = user.RefreshTokens.SingleOrDefault(t => t.Token == token.Token);
             if (refreshToken == null || !refreshToken.IsActive)
             {
                 authModel.Message = "Token is inactive or revoked";
                 return authModel;
             }
+
             refreshToken.RevokedOn = DateTime.UtcNow;
             var newRefreshToken = GenerateRefreshToken();
             user.RefreshTokens.Add(newRefreshToken);
             user.RefreshTokens.RemoveAll(t => !t.IsActive && t.ExpiresOn <= DateTime.UtcNow);
+
             await _userManager.UpdateAsync(user);
-            _httpContextAccessor.HttpContext.Response.Cookies.Append("refreshToken", newRefreshToken.Token, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.None,
-                Expires = newRefreshToken.ExpiresOn
-            });
 
             var jwtToken = GenerateJwtToken(user);
             authModel.IsAuthenticated = true;
@@ -203,11 +248,13 @@ namespace JWTRefreshTokenInDotNet6.Services
             authModel.Email = user.Email;
             authModel.Username = user.UserName;
             authModel.Roles = (await _userManager.GetRolesAsync(user)).ToList();
-            authModel.RefreshToken = newRefreshToken.Token;
-            authModel.RefreshTokenExpiration = newRefreshToken.ExpiresOn;
+            authModel.RefreshToken = newRefreshToken.Token;                         
+            authModel.RefreshTokenExpiration = newRefreshToken.ExpiresOn;          
 
             return authModel;
         }
+
+
         public async Task<ApplicationUser> ValidateUserAsync()
         {
             var httpContext = _httpContextAccessor.HttpContext;
@@ -269,7 +316,7 @@ namespace JWTRefreshTokenInDotNet6.Services
             return new RefreshToken
             {
                 Token = Convert.ToBase64String(randomNumber),
-                ExpiresOn = DateTime.UtcNow.AddDays(10),
+                ExpiresOn = DateTime.UtcNow.AddMinutes(30),
                 CreatedOn = DateTime.UtcNow
             };
         }
@@ -300,7 +347,7 @@ namespace JWTRefreshTokenInDotNet6.Services
             var otp = new Random().Next(1000, 9999).ToString();
 
             user.OtpCode = otp;
-            user.CodeExpiryTime = DateTime.UtcNow.AddMinutes(5);
+            user.CodeExpiryTime = DateTime.UtcNow.AddMinutes(185);
 
             await _userManager.UpdateAsync(user);
 
@@ -313,28 +360,54 @@ namespace JWTRefreshTokenInDotNet6.Services
 
         public async Task<bool> VerifyOtpAsync(string email, string otp)
         {
-            if (_otpStore.TryGetValue(email, out var storedOtp) && storedOtp.Code == otp && storedOtp.Expiry > DateTime.UtcNow)
+            if (_otpStore.TryGetValue(email, out var storedOtp))
             {
-                _otpStore.Remove(email);
-                return true;
+                Console.WriteLine($"Stored OTP: {storedOtp.Code}, Expiry: {storedOtp.Expiry}");
+
+                if (storedOtp.Code == otp && storedOtp.Expiry > DateTime.UtcNow)
+                {
+                    _otpStore.Remove(email);
+                    return true;
+                }
+                Console.WriteLine("OTP mismatch or expired");
+            }
+            else
+            {
+                Console.WriteLine("OTP not found in store");
             }
             return false;
         }
+        public async Task<bool> VerifyOtpForResetPassAsync(ResetPasswordModel otp)
+        {
+            
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Email == otp.Email);
+            if (user == null || user.OtpCode != otp.Otp || user.CodeExpiryTime < DateTime.UtcNow)
+                return false;
+
+            //user.PhoneNumberConfirmed = true;
+            //user.EmailConfirmed = true;
+            //user.OtpCode = null;
+            //user.CodeExpiryTime = null;
+            //await _userManager.UpdateAsync(user);
+
+            return true;
+        }
+
         //public async Task<string?> SendVerificationCodeAsync(SendOtpDto email)
         //{
         //    var user = await _userManager.FindByEmailAsync(email.Email);
         //    if (user == null)
         //        return null;
-
+        //
         //    var otp = new Random().Next(1000, 9999).ToString();
         //    user.OtpCode = otp;
         //    user.CodeExpiryTime = DateTime.UtcNow.AddMinutes(5);
         //    await _userManager.UpdateAsync(user);
-
+        //
         //    var emailSent = await _emailService.SendEmailAsync(email.Email, "Verification Code", $"Your OTP code is: {otp}");
         //    return emailSent ? "OTP sent and saved successfully" : null;
         //}
-
+        //
         //public async Task<bool> VerifyOtpAsync(string email, string otp)
         //{
         //    if (_otpStore.TryGetValue(email, out var storedOtp) && storedOtp.Code == otp && storedOtp.Expiry > DateTime.UtcNow)
@@ -345,20 +418,28 @@ namespace JWTRefreshTokenInDotNet6.Services
         //    return false;
         //}
 
-        public async Task<bool> ResetPasswordAsync(ResetPasswordModel model)
+        public async Task<string> ResetPasswordAsync(ResetPasswordModel model)
         {
             var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
-                return false;
+                return "User not found";
 
-            if (!await VerifyOtpAsync(model.Email, model.Otp))
-                return false;
+            if (!await VerifyOtpForResetPassAsync(model))
+                return "Invalid or expired OTP";
 
             var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
             var result = await _userManager.ResetPasswordAsync(user, resetToken, model.NewPassword);
 
-            return result.Succeeded;
+            if (!result.Succeeded)
+            {
+                var errors = string.Join("; ", result.Errors.Select(e => e.Description));
+                return $"Password reset failed: {errors}";
+            }
+
+            return "Success";
         }
+
+
         public async Task<string> CompleteUserProfileAsync(string userId, CompleteProfileDto model)
         {
             var Url = _configuration["BaseUrl"];

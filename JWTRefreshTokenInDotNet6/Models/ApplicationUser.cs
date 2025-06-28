@@ -12,7 +12,7 @@ namespace JWTRefreshTokenInDotNet6.Models
 
         public DateTime? DateOfBirth { get; set; } 
 
-        public string? ProfileImageUrl { get; set; } // Link of photo 
+        public string? ProfileImageUrl { get; set; } 
 
         public string? vrevication { get; set; }
 

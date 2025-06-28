@@ -48,6 +48,7 @@ namespace JWTRefreshTokenInDotNet6.Services
             {
                 return new Random().Next(1000, 9999).ToString();
             }
+
         //public async Task SendVerificationCodeAsync(ApplicationUser user)
         //{
         //    if (user == null || string.IsNullOrWhiteSpace(user.Email))
@@ -111,24 +112,41 @@ namespace JWTRefreshTokenInDotNet6.Services
             }
         }
 
-
-
         public async Task<bool> VerifyCodeAsync(string email, string code)
         {
             var user = await _userManager.FindByEmailAsync(email);
-            if (user == null || string.IsNullOrWhiteSpace(code))
+
+            // تحقق من وجود المستخدم أولًا
+            if (user == null)
+            {
+                Console.WriteLine("User not found");
                 return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                Console.WriteLine("Code is empty");
+                return false;
+            }
 
             if (user.OtpCode == null || user.CodeExpiryTime == null || user.CodeExpiryTime < DateTime.UtcNow)
+            {
+                Console.WriteLine("OTP expired or missing");
                 return false;
+            }
 
             if (user.OtpCode != code)
+            {
+                Console.WriteLine("OTP does not match");
                 return false;
+            }
+
             user.OtpCode = null!;
             user.CodeExpiryTime = null;
             await _userManager.UpdateAsync(user);
 
             return true;
         }
+
     }
 }

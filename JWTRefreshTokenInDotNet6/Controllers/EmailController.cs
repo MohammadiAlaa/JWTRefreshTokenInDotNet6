@@ -125,8 +125,8 @@ namespace JWTRefreshTokenInDotNet6.Controllers
             }
 
             user.EmailConfirmed = true;
-            user.OtpCode = null;
-            user.CodeExpiryTime = null;
+            //user.OtpCode = null;
+            //user.CodeExpiryTime = null;
 
             await _userManager.UpdateAsync(user);
 
@@ -141,11 +141,11 @@ namespace JWTRefreshTokenInDotNet6.Controllers
 
             var user = await _userManager.FindByEmailAsync(request.Email);
             if (user == null || !user.EmailConfirmed)
-                return Unauthorized(new { message = "Invalid email or unverified account." });
+                return BadRequest(new { message = "Invalid email or unverified account." });
 
             var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, false);
             if (!result.Succeeded)
-                return Unauthorized(new { message = "Invalid email or password." });
+                return BadRequest(new { message = "Invalid email or password." });
             
             user.RefreshTokens.RemoveAll(rt => !rt.IsActive && rt.ExpiresOn <= DateTime.UtcNow);
 
@@ -162,6 +162,7 @@ namespace JWTRefreshTokenInDotNet6.Controllers
                 refreshToken = refreshToken.Token
             });
         }
+
         //[HttpPost("logout")]
         //public async Task<IActionResult> Logout()
         //{
@@ -176,8 +177,6 @@ namespace JWTRefreshTokenInDotNet6.Controllers
 
         //    return Ok(new { message = "Logout successful!" });
         //}
-
-
 
         private string GenerateJwtToken(ApplicationUser user)
         {
@@ -197,12 +196,12 @@ namespace JWTRefreshTokenInDotNet6.Controllers
                 _configuration["Jwt:Issuer"],
                 _configuration["Jwt:Audience"],
                 claims,
-                expires: DateTime.UtcNow.AddMinutes(2),
+                expires: DateTime.UtcNow.AddMinutes(30),
                 signingCredentials: credentials
             );
-
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+
         private RefreshToken GenerateRefreshToken()
         {
             byte[] randomNumber = RandomNumberGenerator.GetBytes(32);
@@ -210,39 +209,35 @@ namespace JWTRefreshTokenInDotNet6.Controllers
             return new RefreshToken
             {
                 Token = Convert.ToBase64String(randomNumber),
-                ExpiresOn = DateTime.UtcNow.AddDays(1),
+                ExpiresOn = DateTime.UtcNow.AddMinutes(30),
                 CreatedOn = DateTime.UtcNow
             };
         }
 
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout()
+        public async Task<IActionResult> Logout([FromBody] RevokeToken refreshToken)
         {
             try
             {
-                var token = _httpContextAccessor.HttpContext.Request.Cookies["refreshToken"];
-
-                if (string.IsNullOrEmpty(token))
+                if (string.IsNullOrEmpty(refreshToken.Token))
                     return BadRequest(new { message = "Refresh token not found." });
 
                 var user = await _userManager.Users
-                    .SingleOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == token));
+                    .SingleOrDefaultAsync(u => u.RefreshTokens.Any(t => t.Token == refreshToken.Token));
 
                 if (user == null)
                     return Unauthorized(new { message = "Invalid token." });
 
-                var refreshToken = user.RefreshTokens.SingleOrDefault(t => t.Token == token);
+                var token = user.RefreshTokens.SingleOrDefault(t => t.Token == refreshToken.Token);
 
-                if (refreshToken == null || !refreshToken.IsActive)
+                if (token == null || !token.IsActive)
                     return BadRequest(new { message = "Token already revoked or expired." });
 
-                refreshToken.RevokedOn = DateTime.UtcNow;
+                token.RevokedOn = DateTime.UtcNow;
                 await _userManager.UpdateAsync(user);
 
-                var expiration = DateTime.UtcNow.AddDays(1); 
-                await _blacklistService.AddTokenToBlacklistAsync(token, expiration);
-
-                _httpContextAccessor.HttpContext.Response.Cookies.Delete("refreshToken");
+                var expiration = DateTime.UtcNow.AddDays(1);
+                await _blacklistService.AddTokenToBlacklistAsync(refreshToken.Token, expiration);
 
                 return Ok(new { message = "Logged out successfully." });
             }
@@ -251,6 +246,7 @@ namespace JWTRefreshTokenInDotNet6.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
 
         public class LoginRequest
         {

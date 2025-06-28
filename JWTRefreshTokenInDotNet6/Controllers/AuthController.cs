@@ -77,35 +77,35 @@ namespace JWTRefreshTokenInDotNet6.Controllers
         }
 
         #region Refresh Token
-        [HttpGet("refreshToken")]
-        public async Task<IActionResult> RefreshToken()
-        {
-            var refreshToken = Request.Cookies["refreshToken"];
+        //[HttpGet("refreshToken")]
+        //public async Task<IActionResult> RefreshToken()
+        //{
+        //    var refreshToken = Request.Cookies["refreshToken"];
 
-            if (string.IsNullOrEmpty(refreshToken))
-                return BadRequest("Refresh token is missing.");
+        //    if (string.IsNullOrEmpty(refreshToken))
+        //        return BadRequest("Refresh token is missing.");
 
-            if (await _blacklistService.IsTokenBlacklistedAsync(refreshToken))
-                return Unauthorized("This token has been revoked");
+        //    if (await _blacklistService.IsTokenBlacklistedAsync(refreshToken))
+        //        return Unauthorized("This token has been revoked");
 
-            var result = await _authService.RefreshTokenAsync(refreshToken);
+        //    var result = await _authService.RefreshTokenAsync(refreshToken);
 
-            if (!result.IsAuthenticated)
-                return BadRequest(result);
+        //    if (!result.IsAuthenticated)
+        //        return BadRequest(result);
 
-            SetRefreshTokenInCookie(result.RefreshToken, result.RefreshTokenExpiration);
+        //    SetRefreshTokenInCookie(result.RefreshToken, result.RefreshTokenExpiration);
 
-            return Ok(result);
-        }
+        //    return Ok(result);
+        //}
 
 
         [HttpPost("refresh-token")]
-        public async Task<IActionResult> RefreshToken([FromBody] string refreshToken)
+        public async Task<IActionResult> RefreshToken([FromBody] RevokeToken refreshToken)
         {
-            if (string.IsNullOrEmpty(refreshToken))
+            if (string.IsNullOrEmpty(refreshToken.Token))
                 return BadRequest("Refresh token is required");
 
-            if (await _blacklistService.IsTokenBlacklistedAsync(refreshToken))
+            if (await _blacklistService.IsTokenBlacklistedAsync(refreshToken.Token))
                 return Unauthorized("This token has been revoked");
 
             var result = await _authService.RefreshTokenAsync(refreshToken);
@@ -114,6 +114,7 @@ namespace JWTRefreshTokenInDotNet6.Controllers
 
             return Ok(result);
         }
+
         #endregion
 
         [HttpPost("revokeToken")]
@@ -182,32 +183,55 @@ namespace JWTRefreshTokenInDotNet6.Controllers
             return Ok("OTP sent successfully.");
         }
 
+        //[HttpPost("reset-password")]
+        //public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordModel model)
+        //{
+        //    var userId = HttpContext.Session.GetString("ResetPasswordUserId");
+
+        //    var user = await _userManager.FindByIdAsync(userId);
+        //    if (user == null)
+        //    {
+        //        return BadRequest();
+        //    }
+
+        //    if (model.NewPassword != model.ConfirmNewPassword)
+        //    {
+        //        return BadRequest();
+        //    }
+
+        //    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        //    var result = await _userManager.ResetPasswordAsync(user, token, model.NewPassword);
+        //    if (!result.Succeeded)
+        //    {
+        //        return BadRequest();
+        //    }
+
+        //    HttpContext.Session.Remove("ResetPasswordUserId");
+        //    return Ok("Reset Password Sucessfully!");
+        //}
+       
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordModel model)
         {
-            var userId = HttpContext.Session.GetString("ResetPasswordUserId");
-
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-            {
-                return BadRequest();
-            }
-
             if (model.NewPassword != model.ConfirmNewPassword)
-            {
-                return BadRequest();
-            }
+                return BadRequest("Passwords do not match.");
 
-            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var result = await _userManager.ResetPasswordAsync(user, token, model.NewPassword);
-            if (!result.Succeeded)
-            {
-                return BadRequest();
-            }
+            var result = await _authService.ResetPasswordAsync(model);
 
-            HttpContext.Session.Remove("ResetPasswordUserId");
-            return Ok("Reset Password Sucessfully!");
+            if (result != "Success")
+                return BadRequest(result); // <== هترجعلك الرسالة كاملة هنا
+
+            return Ok("Password reset successful.");
         }
+
+
+        //private async Task<bool> VerifyOtpAsync(string email, string otp)
+        //{
+        //    // مثال: التحقق من OTP المخزن في قاعدة البيانات أو cache
+        //    var storedOtp = await _emailService.VerifyCodeAsync(email, otp);
+        //    return storedOtp;
+        //}
+
 
         [HttpPut("complete-profile")]
         [Authorize]
