@@ -11,7 +11,7 @@
 - 📊 Detect patterns, keywords, and extract metadata from voice
 - 🔐 JWT Authentication for secure access
 - ⚙️ RESTful APIs built with ASP.NET Core
-- 📁 Organized backend architecture (Clean code + Repository pattern)
+- 📁 Organized backend architecture (Clean code)
 
 ---
 
