@@ -163,21 +163,6 @@ namespace JWTRefreshTokenInDotNet6.Controllers
             });
         }
 
-        //[HttpPost("logout")]
-        //public async Task<IActionResult> Logout()
-        //{
-        //    var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-        //    if (string.IsNullOrEmpty(token))
-        //        return BadRequest("Invalid token.");
-
-        //    var expiration = DateTime.UtcNow.AddHours(1);
-        //    await _blacklistService.AddTokenToBlacklistAsync(token, expiration);
-
-        //    Response.Cookies.Delete("refreshToken");
-
-        //    return Ok(new { message = "Logout successful!" });
-        //}
-
         private string GenerateJwtToken(ApplicationUser user)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));

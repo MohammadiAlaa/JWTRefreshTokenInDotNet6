@@ -32,35 +32,6 @@ namespace JWTRefreshTokenInDotNet6.Controllers
             _blacklistService = blacklistService;
         }
 
-        //[HttpPost("register")]
-        //public async Task<IActionResult> RegisterAsync([FromBody] RegisterModel model)
-        //{
-        //    if (!ModelState.IsValid)
-        //        return BadRequest(ModelState);
-
-        //    var result = await _authService.RegisterAsync(model);
-
-        //    if (!result.IsAuthenticated)
-        //        return BadRequest(result.Message);
-
-        //    SetRefreshTokenInCookie(result.RefreshToken, result.RefreshTokenExpiration);
-
-        //    return Ok(result);
-        //}
-
-        //[HttpPost("token")]
-        //public async Task<IActionResult> GetTokenAsync([FromBody] TokenRequestModel model)
-        //{
-        //    var result = await _authService.GetTokenAsync(model);
-
-        //    if (!result.IsAuthenticated)
-        //        return BadRequest(result.Message);
-
-        //    if(!string.IsNullOrEmpty(result.RefreshToken))
-        //        SetRefreshTokenInCookie(result.RefreshToken, result.RefreshTokenExpiration);
-
-        //    return Ok(result);
-        //}
 
         [HttpPost("addRole")]
         public async Task<IActionResult> AddRoleAsync([FromBody] AddRoleModel model)
@@ -183,33 +154,6 @@ namespace JWTRefreshTokenInDotNet6.Controllers
             return Ok("OTP sent successfully.");
         }
 
-        //[HttpPost("reset-password")]
-        //public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordModel model)
-        //{
-        //    var userId = HttpContext.Session.GetString("ResetPasswordUserId");
-
-        //    var user = await _userManager.FindByIdAsync(userId);
-        //    if (user == null)
-        //    {
-        //        return BadRequest();
-        //    }
-
-        //    if (model.NewPassword != model.ConfirmNewPassword)
-        //    {
-        //        return BadRequest();
-        //    }
-
-        //    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        //    var result = await _userManager.ResetPasswordAsync(user, token, model.NewPassword);
-        //    if (!result.Succeeded)
-        //    {
-        //        return BadRequest();
-        //    }
-
-        //    HttpContext.Session.Remove("ResetPasswordUserId");
-        //    return Ok("Reset Password Sucessfully!");
-        //}
-       
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordModel model)
         {
@@ -223,15 +167,6 @@ namespace JWTRefreshTokenInDotNet6.Controllers
 
             return Ok("Password reset successful.");
         }
-
-
-        //private async Task<bool> VerifyOtpAsync(string email, string otp)
-        //{
-        //    // مثال: التحقق من OTP المخزن في قاعدة البيانات أو cache
-        //    var storedOtp = await _emailService.VerifyCodeAsync(email, otp);
-        //    return storedOtp;
-        //}
-
 
         [HttpPut("complete-profile")]
         [Authorize]

@@ -320,22 +320,6 @@ namespace JWTRefreshTokenInDotNet6.Services
                 CreatedOn = DateTime.UtcNow
             };
         }
-        ////////////////////////////////////////////////////////////
-        //public async Task<string> SendVerificationCodeAsync(SendOtpDto email)
-        //{
-        //    var user = await _userManager.FindByEmailAsync(email.Email);
-        //    if (user == null)
-        //        return "User not found";
-
-        //    var otp = new Random().Next(1000, 9999).ToString();
-        //    _otpStore[email.Email] = (otp, DateTime.UtcNow.AddMinutes(5));
-
-        //    // await _emailService.SendVerificationCodeAsync(user);
-        //    await _emailService.SendEmailAsync(email.Email, "Verification Code", $"Your OTP code is: {otp}");
-
-        //    return "OTP sent successfully";
-        //}
-        ////////////////////////////////////////////////////////////////////////////////////
         
         public async Task<string?> SendVerificationCodeAsync(SendOtpDto email)
         {

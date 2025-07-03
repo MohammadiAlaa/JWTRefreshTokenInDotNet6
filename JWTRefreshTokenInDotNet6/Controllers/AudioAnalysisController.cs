@@ -27,31 +27,12 @@ namespace VoiceDetection.Controllers
             _authService = authService;
         }
 
-        //[Authorize]
-        //[HttpPost("analyze")]
-        //[RequestSizeLimit(10 * 1024 * 1024)] // 10 MB
-        //public async Task<IActionResult> Analyze([FromForm] AnalyzeAudioDto dto)
-        //{
-        //    if (dto.SmallAudio == null || dto.BigAudio == null)
-        //        return BadRequest("Must Two Audio Files");
-
-        //    if (dto.SmallAudio.Length > 184320)
-        //        return BadRequest("The Small Audio Must Smaller Than 180 KB ");
-
-        //    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        //    var result = await _audioService.AnalyzeAsync(userId, dto.SmallAudio, dto.BigAudio);
-        //    return Ok(result);
-        //}
-        
-
         [Authorize]
-        [HttpPost("analyze-small")]
+        [HttpPost("analyze")]
         [RequestSizeLimit(5 * 1024 * 1024)]
         public async Task<IActionResult> AnalyzeSmall([FromForm] AnalyzeSmallAudioDto dto)
         {
-            //if (dto.SmallAudio == null || dto.SmallAudio.Length > 4194304)
-            //    return BadRequest("❌ الملف يجب ألا يتجاوز 4 ميجابايت.");
-
+            
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             try
@@ -61,27 +42,9 @@ namespace VoiceDetection.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"🔥 Error: {ex.Message} \n📦 Inner: {ex.InnerException?.Message}");
+                return StatusCode(500, $" Error: {ex.Message} \n Inner: {ex.InnerException?.Message}");
             }
         }
-
-
-       
-
-
-        //[Authorize]
-        //[HttpPost("store-big")]
-        //[RequestSizeLimit(50 * 1024 * 1024)] // 50MB مثلاً
-        //public async Task<IActionResult> StoreBig([FromForm] StoreBigAudioDto dto)
-        //{
-        //    if (dto.BigAudio == null || string.IsNullOrEmpty(dto.Result))
-        //        return BadRequest("❌ الملف الكبير والنتيجة مطلوبان.");
-
-        //    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        //    var result = await _audioService.SaveBigFileWithResultAsync(userId, dto.BigAudio, dto.Result, dto.Confidence);
-        //    return Ok(result);
-        //}
-
 
         #region القديم 
         //[RequestSizeLimit(104857600)] // 100MB
