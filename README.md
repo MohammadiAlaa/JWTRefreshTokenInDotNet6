@@ -35,8 +35,4 @@ This project connects to an **external audio analysis model** that processes the
 
 ---
 
-## 🚀 Getting Started
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/MohammadiAlaa/TrueToneAudioAnalyzer.git
